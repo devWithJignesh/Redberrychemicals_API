@@ -65,7 +65,13 @@ const saveBase64Image = (base64String, folderName = 'subproduct') => {
     const filePath = path_1.default.join(targetDir, filename);
     fs_1.default.writeFileSync(filePath, buffer);
     // Return static URL accessible from browser
-    return `http://localhost:5000/assets/${normalizedFolder}/${filename}`;
+    const host = process.env.APP_URL ||
+        process.env.BACKEND_URL ||
+        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://redberrychemicals-api-8pjv.vercel.app');
+    const baseHost = process.env.NODE_ENV === 'development' || !process.env.VERCEL
+        ? 'http://localhost:5000'
+        : host;
+    return `${baseHost}/assets/${normalizedFolder}/${filename}`;
 };
 exports.saveBase64Image = saveBase64Image;
 // Helper to safely delete an image from the assets/ or uploads/ folder on disk
