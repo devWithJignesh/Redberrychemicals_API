@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import reviewService from '../services/reviewService';
 import { sendSuccess, sendError } from '../helpers/responseHelper';
-import { saveBase64Image, deleteImageFile } from './uploadController';
+import { uploadToCloudinary, deleteFromCloudinary } from '../services/cloudinaryService';
 
 export const getReviews = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -37,9 +37,9 @@ export const createReview = async (req: Request, res: Response): Promise<void> =
 
     let processedImage = image || '/images/reviews/farmer_1.png';
 
-    // Auto-save base64 image to assets/review folder and store URL in DB
+    // Upload base64 image to Cloudinary and store HTTPS URL in DB
     if (processedImage && typeof processedImage === 'string' && processedImage.startsWith('data:image/')) {
-      processedImage = saveBase64Image(processedImage, 'review');
+      processedImage = await uploadToCloudinary(processedImage, 'reviews');
     }
 
     const payload = {
@@ -69,12 +69,12 @@ export const updateReview = async (req: Request, res: Response): Promise<void> =
 
     let processedImage = image !== undefined ? image : existing.image;
 
-    // Auto-save base64 image if new one is uploaded
+    // Upload new base64 image to Cloudinary if updated
     if (processedImage && typeof processedImage === 'string' && processedImage.startsWith('data:image/')) {
-      processedImage = saveBase64Image(processedImage, 'review');
-      // Clean up old image if it was replaced
+      processedImage = await uploadToCloudinary(processedImage, 'reviews');
+      // Clean up old Cloudinary asset if replaced
       if (existing.image && existing.image !== processedImage) {
-        deleteImageFile(existing.image);
+        await deleteFromCloudinary(existing.image);
       }
     }
 
@@ -101,9 +101,9 @@ export const deleteReview = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    // Delete associated image file from disk if uploaded locally
+    // Delete associated image from Cloudinary
     if (review.image) {
-      deleteImageFile(review.image);
+      await deleteFromCloudinary(review.image);
     }
 
     await reviewService.deleteReview(req.params.id);

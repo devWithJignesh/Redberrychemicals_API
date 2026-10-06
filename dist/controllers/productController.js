@@ -7,7 +7,7 @@ exports.deleteProduct = exports.updateProduct = exports.createProduct = exports.
 const productService_1 = __importDefault(require("../services/productService"));
 const subProductService_1 = __importDefault(require("../services/subProductService"));
 const responseHelper_1 = require("../helpers/responseHelper");
-const uploadController_1 = require("./uploadController");
+const cloudinaryService_1 = require("../services/cloudinaryService");
 const getProducts = async (req, res) => {
     try {
         const { page, limit, search, category } = req.query;
@@ -41,17 +41,19 @@ exports.getProductById = getProductById;
 const createProduct = async (req, res) => {
     try {
         const payload = { ...req.body };
-        // Auto-save base64 images to assets/product folder and store URLs in DB
+        // Upload base64 single image to Cloudinary
         if (payload.image && typeof payload.image === 'string' && payload.image.startsWith('data:image/')) {
-            payload.image = (0, uploadController_1.saveBase64Image)(payload.image, 'product');
+            payload.image = await (0, cloudinaryService_1.uploadToCloudinary)(payload.image, 'products');
         }
+        // Upload array of base64 images to Cloudinary
         if (Array.isArray(payload.images) && payload.images.length > 0) {
-            payload.images = payload.images.map((img) => {
+            const uploadedImages = await Promise.all(payload.images.map((img) => {
                 if (typeof img === 'string' && img.startsWith('data:image/')) {
-                    return (0, uploadController_1.saveBase64Image)(img, 'product');
+                    return (0, cloudinaryService_1.uploadToCloudinary)(img, 'products');
                 }
                 return img;
-            });
+            }));
+            payload.images = uploadedImages;
             if (!payload.image && payload.images.length > 0) {
                 payload.image = payload.images[0];
             }
@@ -72,27 +74,29 @@ const updateProduct = async (req, res) => {
             return;
         }
         const payload = { ...req.body };
-        // Auto-save base64 images to assets/product folder and store URLs in DB
+        // Upload base64 single image to Cloudinary
         if (payload.image && typeof payload.image === 'string' && payload.image.startsWith('data:image/')) {
-            payload.image = (0, uploadController_1.saveBase64Image)(payload.image, 'product');
+            payload.image = await (0, cloudinaryService_1.uploadToCloudinary)(payload.image, 'products');
         }
+        // Upload array of base64 images to Cloudinary
         if (Array.isArray(payload.images) && payload.images.length > 0) {
-            payload.images = payload.images.map((img) => {
+            const uploadedImages = await Promise.all(payload.images.map((img) => {
                 if (typeof img === 'string' && img.startsWith('data:image/')) {
-                    return (0, uploadController_1.saveBase64Image)(img, 'product');
+                    return (0, cloudinaryService_1.uploadToCloudinary)(img, 'products');
                 }
                 return img;
-            });
+            }));
+            payload.images = uploadedImages;
             if (!payload.image && payload.images.length > 0) {
                 payload.image = payload.images[0];
             }
         }
-        // Clean up removed image files from server disk
+        // Clean up replaced / removed images from Cloudinary
         if (payload.images || payload.image) {
             const existingImages = [...(existing.images || []), existing.image].filter(Boolean);
             const newImages = [...(payload.images || []), payload.image].filter(Boolean);
             const removedImages = existingImages.filter((img) => !newImages.includes(img));
-            (0, uploadController_1.deleteImageFiles)(removedImages);
+            await (0, cloudinaryService_1.deleteMultipleFromCloudinary)(removedImages);
         }
         const product = await productService_1.default.updateProduct(req.params.id, payload);
         (0, responseHelper_1.sendSuccess)(res, product, 'Product updated successfully');
@@ -109,22 +113,26 @@ const deleteProduct = async (req, res) => {
             (0, responseHelper_1.sendError)(res, 'Product not found', 404);
             return;
         }
-        // 1. Delete image files from disk for this product
-        (0, uploadController_1.deleteImageFile)(product.image);
-        (0, uploadController_1.deleteImageFiles)(product.images);
-        // 2. Also delete all associated sub-products and their images from disk
+        // 1. Delete image from Cloudinary
+        if (product.image)
+            await (0, cloudinaryService_1.deleteFromCloudinary)(product.image);
+        if (product.images)
+            await (0, cloudinaryService_1.deleteMultipleFromCloudinary)(product.images);
+        // 2. Also delete all associated sub-products and their Cloudinary images
         const subProducts = await subProductService_1.default.getSubProductsByProductId(req.params.id);
         if (Array.isArray(subProducts) && subProducts.length > 0) {
             for (const sp of subProducts) {
-                (0, uploadController_1.deleteImageFile)(sp.image);
-                (0, uploadController_1.deleteImageFiles)(sp.images);
+                if (sp.image)
+                    await (0, cloudinaryService_1.deleteFromCloudinary)(sp.image);
+                if (sp.images)
+                    await (0, cloudinaryService_1.deleteMultipleFromCloudinary)(sp.images);
                 const spId = sp._id ? String(sp._id) : String(sp.id);
                 await subProductService_1.default.deleteSubProduct(spId);
             }
         }
-        // 3. Delete the product record from DB
+        // 3. Delete product record from MongoDB
         await productService_1.default.deleteProduct(req.params.id);
-        (0, responseHelper_1.sendSuccess)(res, null, 'Product and associated images deleted from server disk successfully');
+        (0, responseHelper_1.sendSuccess)(res, null, 'Product and associated Cloudinary assets deleted successfully');
     }
     catch (error) {
         (0, responseHelper_1.sendError)(res, error.message, 500);

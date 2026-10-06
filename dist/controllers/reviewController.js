@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteReview = exports.updateReview = exports.createReview = exports.getReviewById = exports.getReviews = void 0;
 const reviewService_1 = __importDefault(require("../services/reviewService"));
 const responseHelper_1 = require("../helpers/responseHelper");
-const uploadController_1 = require("./uploadController");
+const cloudinaryService_1 = require("../services/cloudinaryService");
 const getReviews = async (req, res) => {
     try {
         const { search, rate } = req.query;
@@ -39,9 +39,9 @@ const createReview = async (req, res) => {
     try {
         const { name, address, location, description, image, rate } = req.body;
         let processedImage = image || '/images/reviews/farmer_1.png';
-        // Auto-save base64 image to assets/review folder and store URL in DB
+        // Upload base64 image to Cloudinary and store HTTPS URL in DB
         if (processedImage && typeof processedImage === 'string' && processedImage.startsWith('data:image/')) {
-            processedImage = (0, uploadController_1.saveBase64Image)(processedImage, 'review');
+            processedImage = await (0, cloudinaryService_1.uploadToCloudinary)(processedImage, 'reviews');
         }
         const payload = {
             name: name ? String(name).trim() : '',
@@ -67,12 +67,12 @@ const updateReview = async (req, res) => {
         }
         const { name, address, location, description, image, rate } = req.body;
         let processedImage = image !== undefined ? image : existing.image;
-        // Auto-save base64 image if new one is uploaded
+        // Upload new base64 image to Cloudinary if updated
         if (processedImage && typeof processedImage === 'string' && processedImage.startsWith('data:image/')) {
-            processedImage = (0, uploadController_1.saveBase64Image)(processedImage, 'review');
-            // Clean up old image if it was replaced
+            processedImage = await (0, cloudinaryService_1.uploadToCloudinary)(processedImage, 'reviews');
+            // Clean up old Cloudinary asset if replaced
             if (existing.image && existing.image !== processedImage) {
-                (0, uploadController_1.deleteImageFile)(existing.image);
+                await (0, cloudinaryService_1.deleteFromCloudinary)(existing.image);
             }
         }
         const payload = {
@@ -97,9 +97,9 @@ const deleteReview = async (req, res) => {
             (0, responseHelper_1.sendError)(res, 'Review not found', 404);
             return;
         }
-        // Delete associated image file from disk if uploaded locally
+        // Delete associated image from Cloudinary
         if (review.image) {
-            (0, uploadController_1.deleteImageFile)(review.image);
+            await (0, cloudinaryService_1.deleteFromCloudinary)(review.image);
         }
         await reviewService_1.default.deleteReview(req.params.id);
         (0, responseHelper_1.sendSuccess)(res, null, 'Review deleted successfully');

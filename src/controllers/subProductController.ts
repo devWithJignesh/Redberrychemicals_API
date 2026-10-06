@@ -1,7 +1,12 @@
 import { Request, Response } from 'express';
 import subProductService from '../services/subProductService';
 import { sendSuccess, sendError } from '../helpers/responseHelper';
-import { saveBase64Image, deleteImageFile, deleteImageFiles } from './uploadController';
+import {
+  uploadToCloudinary,
+  uploadMultipleToCloudinary,
+  deleteFromCloudinary,
+  deleteMultipleFromCloudinary,
+} from '../services/cloudinaryService';
 
 export const getSubProducts = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -47,18 +52,22 @@ export const createSubProduct = async (req: Request, res: Response): Promise<voi
       payload.parentProductId = String(payload.productId);
     }
 
-    // Auto-save base64 images to assets/subproduct folder and store URLs in DB
+    // Upload base64 single image to Cloudinary
     if (payload.image && typeof payload.image === 'string' && payload.image.startsWith('data:image/')) {
-      payload.image = saveBase64Image(payload.image, 'subproduct');
+      payload.image = await uploadToCloudinary(payload.image, 'subproducts');
     }
 
+    // Upload array of base64 images to Cloudinary
     if (Array.isArray(payload.images) && payload.images.length > 0) {
-      payload.images = payload.images.map((img: string) => {
-        if (typeof img === 'string' && img.startsWith('data:image/')) {
-          return saveBase64Image(img, 'subproduct');
-        }
-        return img;
-      });
+      const uploadedImages = await Promise.all(
+        payload.images.map((img: string) => {
+          if (typeof img === 'string' && img.startsWith('data:image/')) {
+            return uploadToCloudinary(img, 'subproducts');
+          }
+          return img;
+        })
+      );
+      payload.images = uploadedImages;
       if (!payload.image && payload.images.length > 0) {
         payload.image = payload.images[0];
       }
@@ -87,29 +96,33 @@ export const updateSubProduct = async (req: Request, res: Response): Promise<voi
       payload.parentProductId = String(payload.productId);
     }
 
-    // Auto-save base64 images to assets/subproduct folder and store URLs in DB
+    // Upload base64 single image to Cloudinary
     if (payload.image && typeof payload.image === 'string' && payload.image.startsWith('data:image/')) {
-      payload.image = saveBase64Image(payload.image, 'subproduct');
+      payload.image = await uploadToCloudinary(payload.image, 'subproducts');
     }
 
+    // Upload array of base64 images to Cloudinary
     if (Array.isArray(payload.images) && payload.images.length > 0) {
-      payload.images = payload.images.map((img: string) => {
-        if (typeof img === 'string' && img.startsWith('data:image/')) {
-          return saveBase64Image(img, 'subproduct');
-        }
-        return img;
-      });
+      const uploadedImages = await Promise.all(
+        payload.images.map((img: string) => {
+          if (typeof img === 'string' && img.startsWith('data:image/')) {
+            return uploadToCloudinary(img, 'subproducts');
+          }
+          return img;
+        })
+      );
+      payload.images = uploadedImages;
       if (!payload.image && payload.images.length > 0) {
         payload.image = payload.images[0];
       }
     }
 
-    // Clean up removed image files from server disk
+    // Clean up replaced / removed images from Cloudinary
     if (payload.images || payload.image) {
       const existingImages = [...(existing.images || []), existing.image].filter(Boolean) as string[];
       const newImages = [...(payload.images || []), payload.image].filter(Boolean) as string[];
       const removedImages = existingImages.filter((img) => !newImages.includes(img));
-      deleteImageFiles(removedImages);
+      await deleteMultipleFromCloudinary(removedImages);
     }
 
     const subProduct = await subProductService.updateSubProduct(req.params.id, payload);
@@ -127,13 +140,13 @@ export const deleteSubProduct = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    // 1. Delete associated image files from assets/subproduct/
-    deleteImageFile(subProduct.image);
-    deleteImageFiles(subProduct.images);
+    // 1. Delete associated images from Cloudinary
+    if (subProduct.image) await deleteFromCloudinary(subProduct.image);
+    if (subProduct.images) await deleteMultipleFromCloudinary(subProduct.images);
 
-    // 2. Delete sub-product from database
+    // 2. Delete sub-product record from MongoDB
     await subProductService.deleteSubProduct(req.params.id);
-    sendSuccess(res, null, 'Sub-product and associated images deleted from server disk successfully');
+    sendSuccess(res, null, 'Sub-product and associated Cloudinary assets deleted successfully');
   } catch (error) {
     sendError(res, (error as Error).message, 500);
   }
