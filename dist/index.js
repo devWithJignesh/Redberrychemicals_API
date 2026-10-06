@@ -8,6 +8,7 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const path_1 = __importDefault(require("path"));
+const mongoose_1 = __importDefault(require("mongoose"));
 const db_1 = require("./config/db");
 const loggerMiddleware_1 = require("./middlewares/loggerMiddleware");
 const errorMiddleware_1 = require("./middlewares/errorMiddleware");
@@ -16,24 +17,37 @@ dotenv_1.default.config();
 const app = (0, express_1.default)();
 exports.app = app;
 const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/redberry_db';
-// Middlewares
+const MONGO_URI = process.env.MONGO_URI ||
+    'mongodb+srv://Vercel-Admin-redberryAPI:tjRRUnMyJkcUfBSm@redberryapi.8wn4tvi.mongodb.net/test?retryWrites=true&w=majority';
+// 1. Core Middlewares
 app.use((0, cors_1.default)());
 app.use(express_1.default.json({ limit: '50mb' }));
 app.use(express_1.default.urlencoded({ limit: '50mb', extended: true }));
 app.use(loggerMiddleware_1.loggerMiddleware);
-// Serve static assets folder (assets/subproduct etc.) and legacy uploads folder
+// 2. Database Connection Middleware (Guarantees DB is connected BEFORE any API route runs)
+app.use(async (_req, _res, next) => {
+    try {
+        await (0, db_1.connectDB)();
+    }
+    catch (err) {
+        console.error('Database connection middleware error:', err);
+    }
+    next();
+});
+// 3. Static Assets
 app.use('/assets', express_1.default.static(path_1.default.join(process.cwd(), 'assets')));
 app.use('/uploads', express_1.default.static(path_1.default.join(process.cwd(), 'uploads')));
-// API Routes
+// 4. API Routes
 app.use('/api', index_1.default);
-// Health Check API
+// 5. Health Check API
 app.get('/health', (req, res) => {
+    const dbConnected = mongoose_1.default.connection.readyState === 1;
     res.json({
         status: 'ONLINE',
         server: 'Running',
-        database: db_1.isConnected ? 'CONNECTED' : 'DISCONNECTED',
-        mongoURI: MONGO_URI,
+        database: dbConnected ? 'CONNECTED' : 'DISCONNECTED',
+        databaseName: mongoose_1.default.connection.name || 'test',
+        readyState: mongoose_1.default.connection.readyState,
         timestamp: new Date().toISOString(),
     });
 });
@@ -264,16 +278,6 @@ app.get('/', (req, res) => {
     </body>
     </html>
   `);
-});
-// Database connection middleware (ensures DB is connected on serverless requests)
-app.use(async (_req, _res, next) => {
-    try {
-        await (0, db_1.connectDB)();
-    }
-    catch (err) {
-        console.warn('DB connection check:', err);
-    }
-    next();
 });
 // Error handling middleware
 app.use(errorMiddleware_1.errorMiddleware);

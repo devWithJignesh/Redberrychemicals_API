@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
+import mongoose from 'mongoose';
 import { connectDB, isConnected } from './config/db';
 import { loggerMiddleware } from './middlewares/loggerMiddleware';
 import { errorMiddleware } from './middlewares/errorMiddleware';
@@ -11,28 +12,42 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/redberry_db';
+const MONGO_URI =
+  process.env.MONGO_URI ||
+  'mongodb+srv://Vercel-Admin-redberryAPI:tjRRUnMyJkcUfBSm@redberryapi.8wn4tvi.mongodb.net/test?retryWrites=true&w=majority';
 
-// Middlewares
+// 1. Core Middlewares
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(loggerMiddleware);
 
-// Serve static assets folder (assets/subproduct etc.) and legacy uploads folder
+// 2. Database Connection Middleware (Guarantees DB is connected BEFORE any API route runs)
+app.use(async (_req: Request, _res: Response, next) => {
+  try {
+    await connectDB();
+  } catch (err) {
+    console.error('Database connection middleware error:', err);
+  }
+  next();
+});
+
+// 3. Static Assets
 app.use('/assets', express.static(path.join(process.cwd(), 'assets')));
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
-// API Routes
+// 4. API Routes
 app.use('/api', apiRoutes);
 
-// Health Check API
+// 5. Health Check API
 app.get('/health', (req: Request, res: Response) => {
+  const dbConnected = mongoose.connection.readyState === 1;
   res.json({
     status: 'ONLINE',
     server: 'Running',
-    database: isConnected ? 'CONNECTED' : 'DISCONNECTED',
-    mongoURI: MONGO_URI,
+    database: dbConnected ? 'CONNECTED' : 'DISCONNECTED',
+    databaseName: mongoose.connection.name || 'test',
+    readyState: mongoose.connection.readyState,
     timestamp: new Date().toISOString(),
   });
 });
@@ -265,16 +280,6 @@ app.get('/', (req: Request, res: Response) => {
     </body>
     </html>
   `);
-});
-
-// Database connection middleware (ensures DB is connected on serverless requests)
-app.use(async (_req: Request, _res: Response, next) => {
-  try {
-    await connectDB();
-  } catch (err) {
-    console.warn('DB connection check:', err);
-  }
-  next();
 });
 
 // Error handling middleware
