@@ -1,0 +1,35 @@
+{
+  "name": "redberry-backend",
+  "version": "1.0.0",
+  "description": "Redberry Agri Sciences Node.js TypeScript Express MongoDB Backend",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "node dist/index.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "build": "tsc"
+  },
+  "keywords": [
+    "nodejs",
+    "express",
+    "typescript",
+    "mongodb",
+    "mongoose"
+  ],
+  "author": "Redberry Agri Sciences",
+  "license": "ISC",
+  "dependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mongoose": "^8.10.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.13.4",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.7.3"
+  }
+}

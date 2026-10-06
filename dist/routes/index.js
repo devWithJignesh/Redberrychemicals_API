@@ -1,0 +1,23 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const productRoutes_1 = __importDefault(require("./productRoutes"));
+const subProductRoutes_1 = __importDefault(require("./subProductRoutes"));
+const inquiryRoutes_1 = __importDefault(require("./inquiryRoutes"));
+const uploadRoutes_1 = __importDefault(require("./uploadRoutes"));
+const authRoutes_1 = __importDefault(require("./authRoutes"));
+const reviewRoutes_1 = __importDefault(require("./reviewRoutes"));
+const seedController_1 = require("../controllers/seedController");
+const router = (0, express_1.Router)();
+router.use('/auth', authRoutes_1.default);
+router.use('/products', productRoutes_1.default);
+router.use('/sub-products', subProductRoutes_1.default);
+router.use('/inquiries', inquiryRoutes_1.default);
+router.use('/reviews', reviewRoutes_1.default);
+router.use('/upload', uploadRoutes_1.default);
+router.post('/seed', seedController_1.seedDatabaseHandler);
+router.get('/seed', seedController_1.seedDatabaseHandler);
+exports.default = router;
