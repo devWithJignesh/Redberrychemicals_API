@@ -2,11 +2,18 @@ import User, { IUser } from '../models/User';
 
 export class AuthService {
   /**
-   * Find user by email address
+   * Find user by email address or name (case-insensitive)
    */
-  async findUserByEmail(email: string): Promise<IUser | null> {
-    const cleanEmail = email.trim().toLowerCase();
-    return await User.findOne({ email: cleanEmail });
+  async findUserByEmail(identifier: string): Promise<IUser | null> {
+    const clean = identifier.trim().toLowerCase();
+    const regex = new RegExp(`^${identifier.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+    return await User.findOne({
+      $or: [
+        { email: clean },
+        { email: regex },
+        { name: regex },
+      ],
+    });
   }
 
   /**

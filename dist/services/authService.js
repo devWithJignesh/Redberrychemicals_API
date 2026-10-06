@@ -7,11 +7,18 @@ exports.AuthService = void 0;
 const User_1 = __importDefault(require("../models/User"));
 class AuthService {
     /**
-     * Find user by email address
+     * Find user by email address or name (case-insensitive)
      */
-    async findUserByEmail(email) {
-        const cleanEmail = email.trim().toLowerCase();
-        return await User_1.default.findOne({ email: cleanEmail });
+    async findUserByEmail(identifier) {
+        const clean = identifier.trim().toLowerCase();
+        const regex = new RegExp(`^${identifier.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+        return await User_1.default.findOne({
+            $or: [
+                { email: clean },
+                { email: regex },
+                { name: regex },
+            ],
+        });
     }
     /**
      * Register / Create a new user with hashed password

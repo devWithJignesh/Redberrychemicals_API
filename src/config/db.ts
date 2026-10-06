@@ -13,9 +13,8 @@ export const connectDB = async (): Promise<boolean> => {
     return cachedPromise;
   }
 
-  const mongoURI =
-    process.env.MONGO_URI ||
-    'mongodb+srv://Vercel-Admin-redberryAPI:tjRRUnMyJkcUfBSm@redberryapi.8wn4tvi.mongodb.net/test?retryWrites=true&w=majority';
+  const mongoURI = process.env.MONGO_URI || 'mongodb+srv://Vercel-Admin-redberryAPI:tjRRUnMyJkcUfBSm@redberryapi.8wn4tvi.mongodb.net/test?retryWrites=true&w=majority';
+  // const mongoURI = 'mongodb+srv://Vercel-Admin-redberryAPI:tjRRUnMyJkcUfBSm@redberryapi.8wn4tvi.mongodb.net/test?retryWrites=true&w=majority';
 
   cachedPromise = (async () => {
     try {
