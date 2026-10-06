@@ -267,12 +267,22 @@ app.get('/', (req: Request, res: Response) => {
   `);
 });
 
+// Database connection middleware (ensures DB is connected on serverless requests)
+app.use(async (_req: Request, _res: Response, next) => {
+  try {
+    await connectDB();
+  } catch (err) {
+    console.warn('DB connection check:', err);
+  }
+  next();
+});
+
 // Error handling middleware
 app.use(errorMiddleware);
 
 import { seedDatabase } from './helpers/seedDatabase';
 
-// Start Server & Connect MongoDB
+// Start Server & Connect MongoDB (For local & traditional Node.js servers)
 const startServer = async () => {
   const dbConnected = await connectDB();
   if (dbConnected) {
@@ -283,4 +293,9 @@ const startServer = async () => {
   });
 };
 
-startServer();
+if (process.env.VERCEL !== '1' && process.env.NODE_ENV !== 'test') {
+  startServer();
+}
+
+export default app;
+export { app };

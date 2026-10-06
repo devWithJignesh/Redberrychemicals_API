@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.app = void 0;
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
@@ -13,6 +14,7 @@ const errorMiddleware_1 = require("./middlewares/errorMiddleware");
 const index_1 = __importDefault(require("./routes/index"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
+exports.app = app;
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/redberry_db';
 // Middlewares
@@ -263,9 +265,19 @@ app.get('/', (req, res) => {
     </html>
   `);
 });
+// Database connection middleware (ensures DB is connected on serverless requests)
+app.use(async (_req, _res, next) => {
+    try {
+        await (0, db_1.connectDB)();
+    }
+    catch (err) {
+        console.warn('DB connection check:', err);
+    }
+    next();
+});
 // Error handling middleware
 app.use(errorMiddleware_1.errorMiddleware);
-// Start Server & Connect MongoDB
+// Start Server & Connect MongoDB (For local & traditional Node.js servers)
 const startServer = async () => {
     const dbConnected = await (0, db_1.connectDB)();
     if (dbConnected) {
@@ -275,4 +287,7 @@ const startServer = async () => {
         console.log(`\x1b[36m🚀 Redberry Backend Server is Running on:\x1b[0m http://localhost:${PORT}`);
     });
 };
-startServer();
+if (process.env.VERCEL !== '1' && process.env.NODE_ENV !== 'test') {
+    startServer();
+}
+exports.default = app;
